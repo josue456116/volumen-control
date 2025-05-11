@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Control de Volumen con Gestos</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/handtrackjs/dist/handtrack.min.js"></script>
+</head>
+<body>
+  <h2>Control de Volumen con Gestos</h2>
+
+  <div class="container">
+    <!-- Cámara a la izquierda -->
+    <div class="left">
+      <video id="video" autoplay></video>
+      <canvas id="canvas"></canvas>
+    </div>
+
+    <!-- Video a la derecha -->
+    <div class="right">
+      <video id="videoPlayer" controls>
+        <source src="https://www.w3schools.com/html/mov_bbb.mp4" type="video/mp4">
+        Tu navegador no soporta HTML5 video.
+      </video>
+      <p id="log">Volumen: 0</p>
+    </div>
+  </div>
+
+  <script>
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const context = canvas.getContext('2d');
+  const videoPlayer = document.getElementById('videoPlayer');
+  const log = document.getElementById('log');
+
+  let model = null;
+
+  const modelParams = {
+    flipHorizontal: true,
+    maxNumBoxes: 1,
+    iouThreshold: 0.5,
+    scoreThreshold: 0.6,
+  };
+
+  handTrack.startVideo(video).then(status => {
+    if (status) runDetection();
+    else alert("Activa la cámara");
+  });
+
+  function runDetection() {
+    model.detect(video).then(predictions => {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      model.renderPredictions(predictions, canvas, context, video);
+
+      if (predictions.length > 0) {
+        const [x, y, w, h] = predictions[0].bbox;
+        const centerY = y + h / 2;  // Centro de la mano
+
+        // Ajustamos el volumen de acuerdo a la posición
+        // Mapeamos la posición Y de la mano para que el volumen suba hasta 1 (100%)
+        const volume = Math.max(0, Math.min(1, 1 - centerY / canvas.height)); 
+
+        // Aseguramos que el volumen suba a un valor más alto cuando la mano esté más cerca del borde superior
+        if (volume > 0.8) {
+          videoPlayer.volume = 1;  // 100% de volumen
+        } else {
+          videoPlayer.volume = volume;  // Volumen proporcional
+        }
+
+        // Actualizamos el log
+        log.innerText = `Volumen: ${(videoPlayer.volume * 100).toFixed(0)}%`;
+      }
+
+      requestAnimationFrame(runDetection);
+    });
+  }
+
+  handTrack.load(modelParams).then(lmodel => {
+    model = lmodel;
+  });
+</script>
+</body>
+</html>
